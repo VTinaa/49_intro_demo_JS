@@ -1,0 +1,57 @@
+
+#!groovy
+//  groovy Jenkinsfile
+properties([disableConcurrentBuilds()])
+
+pipeline  {
+    agent { 
+        label 'Worker1'
+        }
+    options {
+        buildDiscarder(logRotator(numToKeepStr: '10', artifactNumToKeepStr: '10'))
+        timestamps()
+    }
+    stages {
+        stage ("Remove all containers and images"){
+             steps{
+               sh 'bash clear_docker.sh'
+            }
+          }
+         
+        stage("Create docker image") {
+            steps {
+                echo 'Creating docker image ...'
+                dir('.'){
+                    sh "docker build -t vtinaa/demov2 . "
+                }
+            }
+        }
+        stage("docker login") {
+            steps {
+                echo " ============== docker login =================="
+                withCredentials([usernamePassword(credentialsId: 'DockerHub-Credentials', usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD')]) {
+                    sh '''
+                    docker login -u $USERNAME -p $PASSWORD
+                    '''
+                }
+            }
+        }
+        stage("docker push") {
+            steps {
+                echo " ============== pushing image =================="
+                sh '''
+                docker push vtinaa/demov2:latest
+                '''
+            }
+        }
+
+          stage("docker run") {
+            steps {
+                echo " ============== runing image =================="
+                sh '''
+                docker run -d --name demov2 -p 80:80 vtinaa/demov2
+                '''
+            }
+        }
+    }
+}
